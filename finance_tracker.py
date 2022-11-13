@@ -3,8 +3,10 @@ import pandas as pd
 from dataclasses import dataclass
 from time import sleep
 hsbc_path = 'TransactionHistory.csv'
-month = 10
+month = 11
 months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+# todo: Use the full miDataTransactions csv and a start and end date for the transactions and then automatically fill in the correct months
+# todo: add other bank accounts. OOPify it. class for each account all inheriting from BankAccount parent class
 
 
 @dataclass
@@ -17,10 +19,14 @@ class Transaction:
 
 def get_hsbc_csv_data(csv_path):
     transactions = []
+    # read in the csv and parse the date in date time format
     temp_df = pd.read_csv(csv_path, names=['date', 'transaction_desc', 'amount'], parse_dates=[0], dayfirst=True)
+    # only get the month we are looking for
     df = temp_df[temp_df['date'].dt.strftime('%m') == str(month)]
+
     for _, row in df.iterrows():
         category = get_category(row[1])
+        # use data class to create a formatted structure with all the information we need
         transactions.append(Transaction(str(row[0]).replace("00:00:00", ""), row[1], category, float(row[2].replace('\"', "").replace(",", ""))))
     return transactions
 
@@ -38,8 +44,9 @@ def get_category(transaction_desc):
 
 def upload_hsbc(csv_path):
     transactions = get_hsbc_csv_data(csv_path)
-    print(transactions[0].date, transactions[0].transaction_desc, transactions[0].category, transactions[0].amount)
+    # get service account details from %APPDATA%\gspread\service_account.json
     sevice_account = gspread.service_account()
+    # open the correct sheet and worksheet and add the transactions
     sheet = sevice_account.open("Automated Personal Finances")
     worksheet = sheet.worksheet(months[month - 1])
     print("inserting rows...")
