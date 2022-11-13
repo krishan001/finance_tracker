@@ -1,14 +1,51 @@
-import csv
+import gspread
 import pandas as pd
+from dataclasses import dataclass
+from time import sleep
 hsbc_path = 'TransactionHistory.csv'
-month = 11
-months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+month = 10
+months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+
+
+@dataclass
+class Transaction:
+    date: str
+    transaction_desc: str
+    category: str
+    amount: float
+
+
+def get_hsbc_csv_data(csv_path):
+    transactions = []
+    temp_df = pd.read_csv(csv_path, names=['date', 'transaction_desc', 'amount'], parse_dates=[0], dayfirst=True)
+    df = temp_df[temp_df['date'].dt.strftime('%m') == str(month)]
+    for _, row in df.iterrows():
+        category = get_category(row[1])
+        transactions.append(Transaction(str(row[0]).replace("00:00:00", ""), row[1], category, float(row[2].replace('\"', "").replace(",", ""))))
+    return transactions
+
+
+def get_category(transaction_desc):
+    rent_and_bills_descs = ["VIRGIN MEDIA PYMTS DD", "BARCLAYS UK MTGES DD", "YORKSHIRE WATER DD", "OCTOPUS ENERGY DD"]
+    if transaction_desc in rent_and_bills_descs:
+        return "RENT & BILLS"
+    elif transaction_desc == "CLUBWISE DD":
+        return "Gym Membership"
+    elif transaction_desc == "BOSCH THERMOTECH CR":
+        return "Salary"
+    return "other"
 
 
 def upload_hsbc(csv_path):
-    df = pd.read_csv(csv_path, names=['Date', 'Transaction', 'Amount'], parse_dates=[0], dayfirst=True)
-    df2 = df[df['Date'].dt.strftime('%m') == str(month)]
-    print(df2)
+    transactions = get_hsbc_csv_data(csv_path)
+    print(transactions[0].date, transactions[0].transaction_desc, transactions[0].category, transactions[0].amount)
+    sevice_account = gspread.service_account()
+    sheet = sevice_account.open("Automated Personal Finances")
+    worksheet = sheet.worksheet(months[month - 1])
+    print("inserting rows...")
+    for trans in transactions:
+        worksheet.insert_row([trans.date, trans.transaction_desc, trans.category, trans.amount], 7)
+        sleep(1)
 
 
 def main():
