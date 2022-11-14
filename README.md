@@ -1,10 +1,8 @@
-# finance_tracker
+# Finance_tracker
 
-## Youtube tutorial
+This is an application to process a csv of your transactions and upload it to a google sheets document.
 
-<https://www.youtube.com/watch?v=IbdgcUqWSeo&list=WL&index=30>
-
-## NOTE
+This should help to track spending and budget better.
 
 Make sure to get the service account json and put it in the correct folder in your venv. (maybe I will write a script to do this automatically.)
 
