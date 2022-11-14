@@ -75,9 +75,9 @@ class AmexTransactions(BankTransactions):
 
 
 def main():
-    hsbc = HSBCTransactions('TransactionHistory.csv', 11)
+    hsbc = HSBCTransactions(csv_path='TransactionHistory.csv', month=11)
     hsbc.upload()
-    monzo = MonzoTransactions('Monzo_November.csv', 11)
+    monzo = MonzoTransactions(csv_path='Monzo_November.csv', month=11)
     monzo.upload()
 
 
