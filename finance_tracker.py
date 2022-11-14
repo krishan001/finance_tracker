@@ -75,6 +75,8 @@ class HSBCTransactions(BankTransactions):
 
         df.loc[df[desc_header] == "CLUBWISE DD", 'Category'] = "Gym Membership"
         df.loc[df[desc_header] == "BOSCH THERMOTECH CR", 'Category'] = "Salary"
+        df.loc[df[desc_header] == "VANGUARD ASSET MAN", 'Category'] = "Investments"
+
         return df
 
 
