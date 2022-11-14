@@ -1,73 +1,84 @@
 import gspread
 import pandas as pd
-from dataclasses import dataclass
-from time import sleep
-hsbc_path = 'TransactionHistory.csv'
-month = 11
-months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+
 # todo: Use the full miDataTransactions csv and a start and end date for the transactions and then automatically fill in the correct months
-# todo: add other bank accounts. OOPify it. class for each account all inheriting from BankAccount parent class
-
-
-@dataclass
-class Transaction:
-    date: str
-    transaction_desc: str
-    category: str
-    amount: float
 
 
 class BankTransactions():
-    def __init__(self, csv_path):
+    def __init__(self, csv_path, month):
         self.csv_path = csv_path
+        self.month = month
 
     def get_csv_data(self):
         pass
 
-    def get_category(self, transaction_desc):
+    def get_category(self):
         pass
 
     def upload(self):
+        months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
         transactions = self.get_csv_data()
         # get service account details from %APPDATA%\gspread\service_account.json
         sevice_account = gspread.service_account()
         # open the correct sheet and worksheet and add the transactions
         sheet = sevice_account.open("Automated Personal Finances")
-        worksheet = sheet.worksheet(months[month - 3])  # ! changed for example
+        worksheet = sheet.worksheet(months[self.month - 1])
         print(f"inserting rows into {worksheet}...")
-        for trans in transactions:
-            worksheet.insert_row([trans.date, trans.transaction_desc, trans.category, trans.amount], 7)
-            sleep(1)
+        worksheet.insert_rows(transactions, row=7)
 
 
 class HSBCTransactions(BankTransactions):
+
     def get_csv_data(self):
-        transactions = []
         # read in the csv and parse the date in date time format
-        temp_df = pd.read_csv(self.csv_path, names=['date', 'transaction_desc', 'amount'], parse_dates=[0], dayfirst=True)
+        temp_df = pd.read_csv(self.csv_path, names=['Date', 'Name', 'Amount'], parse_dates=[0], dayfirst=True)
+
         # only get the month we are looking for
-        df = temp_df[temp_df['date'].dt.strftime('%m') == str(month)]
+        df = temp_df[temp_df['Date'].dt.strftime('%m') == str(self.month)]
 
-        for _, row in df.iterrows():
-            category = self.get_category(row[1])
-            # use data class to create a formatted structure with all the information we need
-            transactions.append(Transaction(str(row[0]).replace("00:00:00", ""), row[1], category, float(row[2].replace('\"', "").replace(",", ""))))
-        return transactions
+        # Convert types and add relevant columns
+        df.replace(',', '', regex=True, inplace=True)
+        df = df.astype({'Date': 'str', 'Amount': 'float'})
+        df.insert(3, "Bank", "HSBC", allow_duplicates=True)
+        df.insert(2, "Category", "Other", allow_duplicates=True)
+        df = self.get_category(df)
 
-    def get_category(self, transaction_desc):
+        # Ensure columns are in the right order
+        df = df[['Date', 'Name', 'Category', 'Amount', 'Bank']]
+        return df.values.tolist()
+
+    def get_category(self, df):
         rent_and_bills_descs = ["VIRGIN MEDIA PYMTS DD", "BARCLAYS UK MTGES DD", "YORKSHIRE WATER DD", "OCTOPUS ENERGY DD"]
-        if transaction_desc in rent_and_bills_descs:
-            return "RENT & BILLS"
-        elif transaction_desc == "CLUBWISE DD":
-            return "Gym Membership"
-        elif transaction_desc == "BOSCH THERMOTECH CR":
-            return "Salary"
-        return "other"
+        for desc in rent_and_bills_descs:
+            df.loc[df['Name'] == desc, 'Category'] = "Rent and Bills"
+
+        df.loc[df['Name'] == "CLUBWISE DD", 'Category'] = "Gym Membership"
+        df.loc[df['Name'] == "BOSCH THERMOTECH CR", 'Category'] = "Salary"
+        return df
+
+
+class MonzoTransactions(BankTransactions):
+    def get_csv_data(self):
+        # read in the csv and parse the date in date time format
+        temp_df = pd.read_csv(self.csv_path, parse_dates=[1], dayfirst=True)
+        # only get the month we are looking for
+        df = temp_df[temp_df['Date'].dt.strftime('%m') == str(self.month)]
+        df['Date'] = df['Date'].astype(str)
+        df['Bank'] = "Monzo"
+        df = df[['Date', 'Name', 'Category', 'Amount', 'Bank']]
+        return df.values.tolist()
+
+
+class AmexTransactions(BankTransactions):
+    # ! To be implemented
+    ...
 
 
 def main():
-    hsbc = HSBCTransactions(hsbc_path)
+    hsbc = HSBCTransactions('TransactionHistory.csv', 11)
     hsbc.upload()
+    monzo = MonzoTransactions('Monzo_November.csv', 11)
+    monzo.upload()
 
 
 if __name__ == "__main__":
